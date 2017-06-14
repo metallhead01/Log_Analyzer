@@ -9,6 +9,7 @@ from os.path import isfile, join
 import threading
 import json
 import sys
+
 '''version 1.0.1'''
 
 def resource_path(relative_path):
@@ -47,8 +48,8 @@ class Log_Checker(threading.Thread):
             '''CREATE TABLE TMS_LOG ('key' INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, first_log_string INTEGER, last_log_string INTEGER, status TEXT)''')
         cur.close()
         db.close()
-        x = 1
-        while x == 1:
+        compiled_re = re.compile('ErrorText="(.*?)"')
+        while True:
             #time in seconds
             time.sleep(1)
             ready_files = set([f for f in listdir(self.path) if isfile(join(self.path, f))])
@@ -72,12 +73,10 @@ class Log_Checker(threading.Thread):
                         data_out = opened.read()
                         now = datetime.datetime.now()
                         if not 'Status="Ok"' in data_out:
-                            result_mid = re.search('ErrorText="(.*?)"', data_out)
-                            result_final = result_mid.group(0)
-                            error_text = result_final.split('"')[1].split('"')[-1]
+                            result_data_out = re.findall(compiled_re, data_out)
                             cur = db.cursor()
                             cur.execute('''INSERT INTO XML (file_name, status, time, error_text) VALUES (?, ?, ?, ?)''',
-                            (file, "error", datetime.datetime.now(), error_text))
+                            (file, "error", datetime.datetime.now(), result_data_out[0]))
                             zipf = zipfile.ZipFile(str(now.strftime("%Y-%m-%d %H-%M-%S")) + '_' + self.db_name + ".zip", 'w', zipfile.ZIP_DEFLATED)
                             zipdir (self.tmp_path, zipf)
                             zipf.close()
